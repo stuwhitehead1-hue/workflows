@@ -44,10 +44,20 @@ jobs:
           # 5. Write out the clean JSON file for your HTML page
           echo "{\"endpoint\": \"$ENDPOINT_NAME\", \"online\": $IS_ONLINE, \"updated_at\": \"$(date -u -Iseconds)\"}" > status.json
 
-      - name: Commit and Push if status changed
+- name: Commit and Push if status changed
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add status.json
-          git diff-index --quiet HEAD || git commit -m "Automated status update"
-          git push
+          
+          # Only commit if there are actually changes to status.json
+          if ! git diff-index --quiet HEAD; then
+            git commit -m "Automated status update"
+            
+            # 👇 Pull any remote changes first to prevent the 'rejected' error
+            git pull --rebase origin main
+            
+            git push origin main
+          else
+            echo "No changes detected in status.json. Skipping push."
+          fi
