@@ -16,24 +16,24 @@ jobs:
         env:
           ACTION1_CLIENT_ID: ${{ secrets.ACTION1_CLIENT_ID }}
           ACTION1_CLIENT_SECRET: ${{ secrets.ACTION1_CLIENT_SECRET }}
-          ENDPOINT_NAME: "CPE-Control-PC" # Change this to your endpoint's name
+          ACTION1_ORG_ID: ${{ secrets.ACTION1_ORG_ID }} # <-- Required by Action1 API
+          ENDPOINT_NAME: "CPE-Control-PC"
         run: |
-          # 1. Authenticate and get OAuth token
-          TOKEN=$(curl -s -X POST "https://api.action1.com/oauth/token" \
+          # 1. Authenticate and get OAuth token using correct endpoint
+          TOKEN=$(curl -s -X POST "https://app.action1.com/api/3.0/oauth2/token" \
             -H "Content-Type: application/x-www-form-urlencoded" \
             -d "grant_type=client_credentials&client_id=$ACTION1_CLIENT_ID&client_secret=$ACTION1_CLIENT_SECRET" \
             | jq -r '.access_token')
 
-          # 2. Query Action1 endpoints (Adjust API URL route based on Action1 API docs)
-          # This example queries the endpoints list and filters by your target endpoint name
-          STATUS_DATA=$(curl -s -X GET "https://api.action1.com/v1/endpoints" \
+          # 2. Query Action1 endpoints utilizing Org ID and fields wildcard
+          STATUS_DATA=$(curl -s -X GET "https://app.action1.com/api/3.0/endpoints/managed/$ACTION1_ORG_ID?fields=*" \
             -H "Authorization: Bearer $TOKEN")
 
-          # 3. Use jq to isolate the online/offline status of your specific machine
-          # Assumes the JSON response has an 'is_online' or 'status' boolean field
+          # 3. Use jq to isolate the online/offline status
+          # Action1 provides fields like 'is_online' or 'online_status' depending on system metrics.
           IS_ONLINE=$(echo "$STATUS_DATA" | jq --arg name "$ENDPOINT_NAME" '.items[] | select(.name==$name) | .is_online')
 
-          # 4. Fallback in case endpoint wasn't found
+          # 4. Fallback in case endpoint wasn't found or evaluation returned null
           if [ "$IS_ONLINE" = "null" ] || [ -z "$IS_ONLINE" ]; then
             IS_ONLINE=false
           fi
