@@ -32,8 +32,9 @@ jobs:
           STATUS_DATA=$(curl -s -X GET "https://app.eu.action1.com/api/3.0/endpoints/managed/$ACTION1_ORG_ID?fields=*" \
             -H "Authorization: Bearer $TOKEN")
 
-          # 3. Use an error-resistant jq filter to check the online status
-          IS_ONLINE=$(echo "$STATUS_DATA" | jq --arg name "$ENDPOINT_NAME" 'if .items then (.items[] | select(.name==$name) | .is_online) else false end')
+          # 3. Check if the status field equals "connected"
+          # This maps "connected" to true, and anything else (like "disconnected") to false
+          IS_ONLINE=$(echo "$STATUS_DATA" | jq --arg name "$ENDPOINT_NAME" 'if .items then (.items[] | select(.name==$name) | .status == "connected") else false end')
 
           # 4. Fallback in case endpoint wasn't found or evaluation returned null
           if [ "$IS_ONLINE" = "null" ] || [ -z "$IS_ONLINE" ]; then
