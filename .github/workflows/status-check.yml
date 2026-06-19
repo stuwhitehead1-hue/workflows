@@ -32,10 +32,16 @@ jobs:
           STATUS_DATA=$(curl -s -X GET "https://app.eu.action1.com/api/3.0/endpoints/managed/$ACTION1_ORG_ID?fields=*" \
             -H "Authorization: Bearer $TOKEN")
 
-          # 3. Check if the status field equals "connected"
-          IS_ONLINE=$(echo "$STATUS_DATA" | jq --arg name "$ENDPOINT_NAME" 'if .items then (.items[] | select(.name==$name) | .status == "connected") else false end')
+          # 3. Check if the endpoint name matches (case-insensitive contains) 
+          # AND if the status field equals "connected" (case-insensitive)
+          IS_ONLINE=$(echo "$STATUS_DATA" | jq --arg name "$ENDPOINT_NAME" '
+            if .items then 
+              [ .items[] | select(.name | ascii_downcase | contains($name | ascii_downcase)) | .status | ascii_downcase == "connected" ] | any
+            else 
+              false 
+            end')
 
-          # 4. Fallback in case endpoint wasn't found or evaluation returned null
+          # 4. Fallback in case evaluation returned null or empty
           if [ "$IS_ONLINE" = "null" ] || [ -z "$IS_ONLINE" ]; then
             IS_ONLINE=false
           fi
@@ -49,7 +55,6 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add status.json
           
-          # Safely check if status.json changed without throwing a terminal error
           CHANGES=$(git status --porcelain status.json)
           
           if [ -n "$CHANGES" ]; then
