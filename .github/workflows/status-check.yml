@@ -3,19 +3,26 @@ name: Check Action1 Endpoint Status
 on:
   schedule:
     - cron: '*/5 * * * *' # Runs every 5 minutes
-  workflow_dispatch: # Allows you to run it manually
+  workflow_dispatch: # Allows manual triggers
 
 permissions:
-  contents: write
+  contents: read
+  pages: write      # Required to deploy directly to Pages
+  id-token: write   # Required for secure deployment authentication
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
 
 jobs:
   update-status:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-        with:
-          fetch-depth: 0 # Fetches full history so branches match cleanly
 
       - name: Fetch Endpoint Status from Action1
         env:
@@ -50,28 +57,15 @@ jobs:
           # 5. Write out the clean JSON file for your HTML page
           echo "{\"endpoint\": \"$ENDPOINT_NAME\", \"online\": $IS_ONLINE, \"updated_at\": \"$(date -u -Iseconds)\"}" > status.json
 
-      - name: Commit and Push Status
-        run: |
-          # Guarantee we are working directly on the remote tracking branch
-          git checkout main || git checkout -b main
-          
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Stage the freshly changed json file
-          git add status.json
-          
-          # Force a commit using a dynamically updating epoch timestamp in the commit message.
-          # If Git acts stubborn and says nothing changed, the fallback rule appends an 
-          # invisible whitespace to force a hash difference.
-          if ! git commit -m "Automated status update (Timestamp: $(date +%s))"; then
-            echo " " >> status.json
-            git add status.json
-            git commit -m "Automated status update (Forced change)"
-          fi
-          
-          # Pull down any overlapping remote changes safely using rebase
-          git pull --rebase origin main
-          
-          # Push directly back to your repository's live files
-          git push origin main
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload website files
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # This packages both index.html and our fresh status.json together
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
