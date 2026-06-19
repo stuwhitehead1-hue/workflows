@@ -2,14 +2,24 @@ name: Check Action1 Endpoint Status
 
 on:
   schedule:
-    - cron: '*/15 * * * *' # Runs every 5 minutes
-  workflow_dispatch: # Allows you to run it manually
+    - cron: '*/5 * * * *' # Runs every 5 minutes
+  workflow_dispatch: # Allows manual trigger
 
 permissions:
-  contents: write
+  contents: read
+  pages: write      # 👇 Required to deploy directly to Pages
+  id-token: write   # 👇 Required for secure deployment authentication
+
+# Allow only one concurrent deployment, skipping runs time-outs
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
 
 jobs:
   update-status:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -32,8 +42,7 @@ jobs:
           STATUS_DATA=$(curl -s -X GET "https://app.eu.action1.com/api/3.0/endpoints/managed/$ACTION1_ORG_ID?fields=*" \
             -H "Authorization: Bearer $TOKEN")
 
-          # 3. Check if the endpoint name matches (case-insensitive contains) 
-          # AND if the status field equals "connected" (case-insensitive)
+          # 3. Check if the endpoint name matches and status is connected
           IS_ONLINE=$(echo "$STATUS_DATA" | jq --arg name "$ENDPOINT_NAME" '
             if .items then 
               [ .items[] | select(.name | ascii_downcase | contains($name | ascii_downcase)) | .status | ascii_downcase == "connected" ] | any
@@ -49,18 +58,15 @@ jobs:
           # 5. Write out the clean JSON file for your HTML page
           echo "{\"endpoint\": \"$ENDPOINT_NAME\", \"online\": $IS_ONLINE, \"updated_at\": \"$(date -u -Iseconds)\"}" > status.json
 
-      - name: Commit and Push if status changed
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add status.json
-          
-          CHANGES=$(git status --porcelain status.json)
-          
-          if [ -n "$CHANGES" ]; then
-            git commit -m "Automated status update"
-            git pull --rebase origin main
-            git push origin main
-          else
-            echo "No changes to status.json. Skipping push."
-          fi
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload website files
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Upload the entire repository directory (which contains index.html and our newly generated status.json)
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
