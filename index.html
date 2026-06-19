@@ -11,18 +11,19 @@
             justify-content: center;
             align-items: center;
             height: 100vh;
-            background-color: #f4f6f9;
+            background-color: #000000; /* 👇 Changed background to pure black */
             margin: 0;
         }
         .card {
-            background: white;
+            background: #121212; /* Darkened the card container for dark mode */
             padding: 30px;
             border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border: 1px solid #2d3748; /* Dark border to match the dark aesthetic */
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
             text-align: center;
             min-width: 300px;
         }
-        h1 { margin-bottom: 5px; color: #333; font-size: 1.5rem; }
+        h1 { margin-bottom: 5px; color: #ffffff; font-size: 1.5rem; } /* White text for the title */
         .status-badge {
             display: inline-block;
             margin: 20px 0;
@@ -32,9 +33,11 @@
             text-transform: uppercase;
             font-size: 1.1rem;
         }
-        .online { background-color: #d4edda; color: #155724; }
-        .offline { background-color: #f8d7da; color: #721c24; }
-        .timestamp { font-size: 0.8rem; color: #6c757d; }
+        /* Adjusted the green and red badge colors slightly to be more vibrant on dark UI */
+        .online { background-color: #1c4ed8; color: #ffffff; } /* Alternative sleek dark option, or stick to vibrant green below */
+        .online { background-color: #064e3b; color: #34d399; } /* Dark vibrant green */
+        .offline { background-color: #7f1d1d; color: #f87171; } /* Dark vibrant red */
+        .timestamp { font-size: 0.8rem; color: #a0aec0; } /* Light grey timestamp text */
     </style>
 </head>
 <body>
