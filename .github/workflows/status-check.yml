@@ -5,7 +5,6 @@ on:
     - cron: '*/15 * * * *' # Runs every 15 minutes
   workflow_dispatch: # Allows you to run it manually
 
-# 👇 CRITICAL: This grants the runner permission to commit and push status.json
 permissions:
   contents: write
 
@@ -14,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5 # 👇 Updated to v5 to remove the Node.js warning
+        uses: actions/checkout@v5
 
       - name: Fetch Endpoint Status from Action1
         env:
@@ -23,18 +22,18 @@ jobs:
           ACTION1_ORG_ID: ${{ secrets.ACTION1_ORG_ID }}
           ENDPOINT_NAME: "CPE-Control-PC"
         run: |
-          # 1. Authenticate and get OAuth token using correct endpoint
-          TOKEN=$(curl -s -X POST "https://app.action1.com/api/3.0/oauth2/token" \
+          # 1. Authenticate using your exact EU cluster URL and payload structure
+          TOKEN=$(curl -s -X POST "https://app.eu.action1.com/api/3.0/oauth2/token" \
             -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "grant_type=client_credentials&client_id=$ACTION1_CLIENT_ID&client_secret=$ACTION1_CLIENT_SECRET" \
+            -d "client_id=$ACTION1_CLIENT_ID&client_secret=$ACTION1_CLIENT_SECRET" \
             | jq -r '.access_token')
 
-          # 2. Query Action1 endpoints utilizing Org ID and fields wildcard
-          STATUS_DATA=$(curl -s -X GET "https://app.action1.com/api/3.0/endpoints/managed/$ACTION1_ORG_ID?fields=*" \
+          # 2. Query EU cluster endpoints utilizing your Org ID
+          STATUS_DATA=$(curl -s -X GET "https://app.eu.action1.com/api/3.0/endpoints/managed/$ACTION1_ORG_ID?fields=*" \
             -H "Authorization: Bearer $TOKEN")
 
-          # 3. Use jq to isolate the online/offline status
-          IS_ONLINE=$(echo "$STATUS_DATA" | jq --arg name "$ENDPOINT_NAME" '.items[] | select(.name==$name) | .is_online')
+          # 3. Use an error-resistant jq filter to check the online status
+          IS_ONLINE=$(echo "$STATUS_DATA" | jq --arg name "$ENDPOINT_NAME" 'if .items then (.items[] | select(.name==$name) | .is_online) else false end')
 
           # 4. Fallback in case endpoint wasn't found or evaluation returned null
           if [ "$IS_ONLINE" = "null" ] || [ -z "$IS_ONLINE" ]; then
