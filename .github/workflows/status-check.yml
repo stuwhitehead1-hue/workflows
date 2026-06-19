@@ -27,13 +27,12 @@ jobs:
             -H "Content-Type: application/x-www-form-urlencoded" \
             -d "client_id=$ACTION1_CLIENT_ID&client_secret=$ACTION1_CLIENT_SECRET" \
             | jq -r '.access_token')
-
+            
           # 2. Query EU cluster endpoints utilizing your Org ID
           STATUS_DATA=$(curl -s -X GET "https://app.eu.action1.com/api/3.0/endpoints/managed/$ACTION1_ORG_ID?fields=*" \
             -H "Authorization: Bearer $TOKEN")
 
           # 3. Check if the status field equals "connected"
-          # This maps "connected" to true, and anything else (like "disconnected") to false
           IS_ONLINE=$(echo "$STATUS_DATA" | jq --arg name "$ENDPOINT_NAME" 'if .items then (.items[] | select(.name==$name) | .status == "connected") else false end')
 
           # 4. Fallback in case endpoint wasn't found or evaluation returned null
@@ -49,5 +48,14 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add status.json
-          git diff-index --quiet HEAD || git commit -m "Automated status update"
-          git push
+          
+          # Safely check if status.json changed without throwing a terminal error
+          CHANGES=$(git status --porcelain status.json)
+          
+          if [ -n "$CHANGES" ]; then
+            git commit -m "Automated status update"
+            git pull --rebase origin main
+            git push origin main
+          else
+            echo "No changes to status.json. Skipping push."
+          fi
