@@ -33,7 +33,6 @@ jobs:
             -H "Authorization: Bearer $TOKEN")
 
           # 3. Check if the status field equals "connected"
-          # This maps "connected" to true, and anything else (like "disconnected") to false
           IS_ONLINE=$(echo "$STATUS_DATA" | jq --arg name "$ENDPOINT_NAME" 'if .items then (.items[] | select(.name==$name) | .status == "connected") else false end')
 
           # 4. Fallback in case endpoint wasn't found or evaluation returned null
@@ -44,19 +43,18 @@ jobs:
           # 5. Write out the clean JSON file for your HTML page
           echo "{\"endpoint\": \"$ENDPOINT_NAME\", \"online\": $IS_ONLINE, \"updated_at\": \"$(date -u -Iseconds)\"}" > status.json
 
-- name: Commit and Push if status changed
+      - name: Commit and Push if status changed
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add status.json
           
-          # Only commit if there are actually changes to status.json
-          if ! git diff-index --quiet HEAD; then
+          # Check for changes safely without letting a non-zero exit code crash the runner
+          CHANGES=$(git status --porcelain status.json)
+          
+          if [ -n "$CHANGES" ]; then
             git commit -m "Automated status update"
-            
-            # 👇 Pull any remote changes first to prevent the 'rejected' error
             git pull --rebase origin main
-            
             git push origin main
           else
             echo "No changes detected in status.json. Skipping push."
